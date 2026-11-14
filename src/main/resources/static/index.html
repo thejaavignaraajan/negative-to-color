@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎞️ 90s Negative to Colour Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .film-strip::before, .film-strip::after {
+            content: '';
+            display: block;
+            height: 20px;
+            background: repeating-linear-gradient(90deg, #1a1a1a 0px,#1a1a1a 15px,#333 15px,#333 20px,#1a1a1a 20px,#1a1a1a 35px,#000 35px,#000 55px);
+        }
+        .drop-zone.dragover { border-color: #6366f1; background: #1e1b4b; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+
+        /* Slider track + thumb styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            background: #f59e0b;
+            border: 2px solid #1c1917;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        .slider-red   { background: linear-gradient(to right, #18181b, #ef4444); }
+        .slider-green { background: linear-gradient(to right, #18181b, #22c55e); }
+        .slider-blue  { background: linear-gradient(to right, #18181b, #3b82f6); }
+        .slider-bri   { background: linear-gradient(to right, #000, #fff); }
+        .slider-con   { background: linear-gradient(to right, #71717a 0%, #d4d4d8 50%, #fff 100%); }
+        .slider-sat   { background: linear-gradient(to right, #71717a, #f59e0b); }
+
+        .pill-val {
+            min-width: 2.8rem;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+
+    <!-- Film-strip header -->
+    <header class="film-strip">
+        <div class="bg-zinc-900 px-6 py-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+                <h1 class="text-2xl font-black tracking-tight text-amber-400 flex items-center gap-3">
+                    <span class="text-3xl">🎞️</span> 90s Negative → Colour Converter
+                </h1>
+                <p class="text-zinc-400 text-sm mt-1">Upload a scanned colour film negative — get a beautiful positive with live colour controls.</p>
+            </div>
+            <a href="/api/convert/modes" target="_blank"
+               class="text-xs font-medium text-zinc-400 hover:text-amber-400 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-code"></i> API Reference
+            </a>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8 grid xl:grid-cols-2 gap-8">
+
+        <!-- ════════════════════════════════════════════════
+             LEFT PANEL — Upload + Conversion Settings
+             ════════════════════════════════════════════════ -->
+        <section class="space-y-5">
+
+            <!-- Drop Zone -->
+            <div id="dropZone"
+                 class="drop-zone border-2 border-dashed border-zinc-700 hover:border-amber-500 rounded-2xl p-10 text-center cursor-pointer transition-all duration-200"
+                 onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" accept="image/*" class="hidden">
+                <div id="dropIcon" class="text-5xl mb-3 text-zinc-600">
+                    <i class="fa-solid fa-film"></i>
+                </div>
+                <p class="text-sm text-zinc-400 font-medium">
+                    Drag & drop your negative scan, or <span class="text-amber-400 underline">click to browse</span>
+                </p>
+                <p class="text-xs text-zinc-600 mt-2">JPEG · PNG · TIFF · BMP · WebP · Max 50 MB</p>
+            </div>
+
+            <!-- Input Preview -->
+            <div id="inputPreviewSection" class="hidden">
+                <p class="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-2">Uploaded Negative</p>
+                <div class="rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900">
+                    <img id="inputPreview" src="" alt="Negative Preview" class="w-full object-contain max-h-56">
+                </div>
+                <p id="inputFilename" class="text-xs text-zinc-500 mt-1.5 text-center"></p>
+            </div>
+
+            <!-- Conversion Mode -->
+            <div class="bg-zinc-900 rounded-2xl border border-zinc-800 p-5 space-y-3">
+                <h2 class="text-sm font-bold uppercase tracking-widest text-zinc-400">
+                    <i class="fa-solid fa-wand-magic-sparkles text-amber-400 mr-1.5"></i>Conversion Mode
+                </h2>
+                <div class="space-y-2">
+                    <label class="flex items-start gap-3 cursor-pointer p-3 rounded-xl hover:bg-zinc-800 transition">
+                        <input type="radio" name="mode" value="AUTO_COLOR_CORRECT" checked class="accent-amber-400 mt-0.5">
+                        <div>
+                            <span class="text-sm font-semibold">Auto Color Correct
+                                <span class="text-[10px] bg-amber-500 text-black px-1.5 py-0.5 rounded ml-1 font-bold">Recommended</span>
+                            </span>
+                            <p class="text-xs text-zinc-500 mt-0.5">Mask removal + auto levels + gamma. Best for 90s C-41 colour negatives.</p>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-3 cursor-pointer p-3 rounded-xl hover:bg-zinc-800 transition">
+                        <input type="radio" name="mode" value="ORANGE_MASK_REMOVAL" class="accent-amber-400 mt-0.5">
+                        <div>
+                            <span class="text-sm font-semibold">Mask Removal (Any Base Colour)</span>
+                            <p class="text-xs text-zinc-500 mt-0.5">Per-channel percentile normalisation — works for orange or cyan-shifted negatives.</p>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-3 cursor-pointer p-3 rounded-xl hover:bg-zinc-800 transition">
+                        <input type="radio" name="mode" value="SIMPLE_INVERT" class="accent-amber-400 mt-0.5">
+                        <div>
+                            <span class="text-sm font-semibold">Simple Invert</span>
+                            <p class="text-xs text-zinc-500 mt-0.5">Pure pixel inversion (255 − x). Best for B&W negatives.</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Convert Button -->
+            <button id="convertBtn" onclick="convertImage()"
+                    class="w-full py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-base tracking-wide shadow-lg shadow-amber-900/40 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-film text-lg"></i> Convert Negative to Colour
+            </button>
+
+            <!-- Error -->
+            <div id="errorMsg" class="hidden bg-red-900/50 border border-red-700 text-red-300 text-sm rounded-xl px-4 py-3"></div>
+
+        </section>
+
+        <!-- ════════════════════════════════════════════════
+             RIGHT PANEL — Output + Live Colour Controls
+             ════════════════════════════════════════════════ -->
+        <section class="space-y-5">
+
+            <!-- Loading -->
+            <div id="loadingState" class="hidden text-center py-24">
+                <div class="inline-block w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p class="text-zinc-400 text-sm">Processing your negative…</p>
+            </div>
+
+            <!-- Result Canvas (live-updated by sliders) -->
+            <div id="resultSection" class="hidden space-y-4">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs font-bold uppercase tracking-widest text-zinc-500">Converted Positive</p>
+                    <span id="processingBadge" class="text-xs text-emerald-400 font-semibold"></span>
+                </div>
+
+                <!-- Canvas for live preview -->
+                <div class="rounded-xl overflow-hidden border border-zinc-700 bg-zinc-900 shadow-xl relative">
+                    <canvas id="resultCanvas" class="w-full object-contain max-h-96 block"></canvas>
+                </div>
+
+                <!-- Stats Row -->
+                <div class="grid grid-cols-3 gap-3 text-center">
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+                        <p class="text-xs text-zinc-500 uppercase tracking-wider">Width</p>
+                        <p id="statW" class="text-lg font-bold">—</p>
+                    </div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+                        <p class="text-xs text-zinc-500 uppercase tracking-wider">Height</p>
+                        <p id="statH" class="text-lg font-bold">—</p>
+                    </div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-3">
+                        <p class="text-xs text-zinc-500 uppercase tracking-wider">Process Time</p>
+                        <p id="statTime" class="text-lg font-bold text-amber-400">—</p>
+                    </div>
+                </div>
+
+                <!-- ══════════════════════════════════════════
+                     COLOUR ADJUSTMENT PANEL
+                     ══════════════════════════════════════════ -->
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-bold uppercase tracking-widest text-zinc-400">
+                            <i class="fa-solid fa-sliders text-amber-400 mr-1.5"></i>Manual Colour Adjustments
+                        </h3>
+                        <button onclick="resetSliders()"
+                                class="text-xs px-3 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-arrow-rotate-left"></i> Reset
+                        </button>
+                    </div>
+
+                    <div class="space-y-5">
+
+                        <!-- ── Colour Balance ── -->
+                        <div>
+                            <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Colour Balance</p>
+                            <div class="space-y-3">
+
+                                <!-- Red -->
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs font-bold text-red-400 w-8">Red</span>
+                                    <input id="slRed" type="range" min="-255" max="255" value="0"
+                                           class="flex-1 slider-red" oninput="onSliderChange()">
+                                    <span id="valRed" class="text-xs font-mono pill-val text-red-400">0</span>
+                                </div>
+
+                                <!-- Green -->
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs font-bold text-green-400 w-8">Grn</span>
+                                    <input id="slGreen" type="range" min="-255" max="255" value="0"
+                                           class="flex-1 slider-green" oninput="onSliderChange()">
+                                    <span id="valGreen" class="text-xs font-mono pill-val text-green-400">0</span>
+                                </div>
+
+                                <!-- Blue -->
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs font-bold text-blue-400 w-8">Blu</span>
+                                    <input id="slBlue" type="range" min="-255" max="255" value="0"
+                                           class="flex-1 slider-blue" oninput="onSliderChange()">
+                                    <span id="valBlue" class="text-xs font-mono pill-val text-blue-400">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-zinc-800"></div>
+
+                        <!-- ── Tonal Controls ── -->
+                        <div>
+                            <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Tonal Controls</p>
+                            <div class="space-y-3">
+
+                                <!-- Brightness -->
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs font-bold text-zinc-300 w-8">Bri</span>
+                                    <input id="slBri" type="range" min="-255" max="255" value="0"
+                                           class="flex-1 slider-bri" oninput="onSliderChange()">
+                                    <span id="valBri" class="text-xs font-mono pill-val text-zinc-300">0</span>
+                                </div>
+
+                                <!-- Contrast -->
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs font-bold text-zinc-300 w-8">Con</span>
+                                    <input id="slCon" type="range" min="-128" max="128" value="0"
+                                           class="flex-1 slider-con" oninput="onSliderChange()">
+                                    <span id="valCon" class="text-xs font-mono pill-val text-zinc-300">0</span>
+                                </div>
+
+                                <!-- Saturation -->
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs font-bold text-amber-400 w-8">Sat</span>
+                                    <input id="slSat" type="range" min="-100" max="100" value="0"
+                                           class="flex-1 slider-sat" oninput="onSliderChange()">
+                                    <span id="valSat" class="text-xs font-mono pill-val text-amber-400">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── Status line ── -->
+                        <div id="adjustStatus" class="text-xs text-zinc-600 text-center hidden">
+                            <i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Applying adjustments…
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Download -->
+                <button onclick="downloadCanvas()"
+                        class="flex items-center justify-center gap-3 w-full py-3.5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-bold text-sm border border-zinc-700 transition">
+                    <i class="fa-solid fa-download text-amber-400"></i>
+                    Download Positive Image (PNG)
+                </button>
+
+                <p id="modeBadge" class="text-center text-xs text-zinc-600"></p>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="flex flex-col items-center justify-center py-24 text-center">
+                <div class="text-6xl mb-5 opacity-20">🌅</div>
+                <p class="text-zinc-600 font-semibold text-sm">Your converted positive will appear here</p>
+                <p class="text-zinc-700 text-xs mt-1">Upload a negative and click Convert</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- How it works -->
+    <section class="max-w-7xl mx-auto px-4 pb-14">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+            <h2 class="text-sm font-bold uppercase tracking-widest text-zinc-400 mb-5">
+                <i class="fa-solid fa-circle-info text-amber-400 mr-2"></i>How the Conversion Works
+            </h2>
+            <div class="grid sm:grid-cols-4 gap-5 text-sm">
+                <div class="space-y-1.5">
+                    <div class="text-2xl">📊</div>
+                    <h3 class="font-bold text-zinc-200">Step 1 — Range Analysis</h3>
+                    <p class="text-zinc-500 text-xs leading-relaxed">Builds a histogram for R, G, B channels. Finds the 1st and 99th percentiles — the film base and deepest shadow — to handle any base colour (orange or cyan).</p>
+                </div>
+                <div class="space-y-1.5">
+                    <div class="text-2xl">🔄</div>
+                    <h3 class="font-bold text-zinc-200">Step 2 — Invert + Normalise</h3>
+                    <p class="text-zinc-500 text-xs leading-relaxed">Each channel inverted as <code class="bg-zinc-800 px-1 rounded text-[10px]">(max−neg)×255/(max−min)</code>. No clipping. Film base → black, scene highlights → white.</p>
+                </div>
+                <div class="space-y-1.5">
+                    <div class="text-2xl">✨</div>
+                    <h3 class="font-bold text-zinc-200">Step 3 — Gamma Correction</h3>
+                    <p class="text-zinc-500 text-xs leading-relaxed">sRGB gamma (γ=2.2) brightens midtones so the result looks natural on modern displays instead of too dark or flat.</p>
+                </div>
+                <div class="space-y-1.5">
+                    <div class="text-2xl">🎨</div>
+                    <h3 class="font-bold text-zinc-200">Step 4 — Live Colour Controls</h3>
+                    <p class="text-zinc-500 text-xs leading-relaxed">Canvas-based pixel editing applies R/G/B offsets, brightness, contrast (Photoshop formula), and saturation in real time — no server round-trip needed.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="text-center text-xs text-zinc-700 pb-8">
+        Spring Boot 3 · Java Image I/O · Canvas API · 90s Film Negative Converter
+    </footer>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         APPLICATION SCRIPT
+         ══════════════════════════════════════════════════════════════════════ -->
+    <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let selectedFile   = null;
+    let basePixels     = null;   // Uint8ClampedArray — the server-converted pixels (no adjustments)
+    let canvasW        = 0;
+    let canvasH        = 0;
+    let currentOutput  = null;   // filename for download
+    let rafPending     = false;  // requestAnimationFrame gate
+
+    const canvas  = document.getElementById('resultCanvas');
+    const ctx     = canvas.getContext('2d', { willReadFrequently: true });
+    const fileInput = document.getElementById('fileInput');
+    const dropZone  = document.getElementById('dropZone');
+
+    // ── Drag & Drop ────────────────────────────────────────────────────────────
+    dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const f = e.dataTransfer.files[0];
+        if (f) handleFile(f);
+    });
+    fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+    function handleFile(file) {
+        selectedFile = file;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            document.getElementById('inputPreview').src = ev.target.result;
+            document.getElementById('inputFilename').textContent =
+                `${file.name}  ·  ${(file.size / 1024).toFixed(1)} KB`;
+            document.getElementById('inputPreviewSection').classList.remove('hidden');
+            document.getElementById('dropIcon').innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i>';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // ── Conversion ─────────────────────────────────────────────────────────────
+    async function convertImage() {
+        if (!selectedFile) { showError('Please upload a negative image first.'); return; }
+        clearError();
+        showLoading(true);
+        showResult(false);
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('mode', getMode());
+        // Always request the server result without adjustments — the sliders run client-side
+        formData.append('red',        0);
+        formData.append('green',      0);
+        formData.append('blue',       0);
+        formData.append('brightness', 0);
+        formData.append('contrast',   0);
+        formData.append('saturation', 0);
+
+        try {
+            const response = await fetch('/api/convert/image/base64', { method: 'POST', body: formData });
+            const data = await response.json();
+            if (!response.ok) { showError(data.error || 'Conversion failed.'); return; }
+
+            // Load server result into canvas
+            await loadBase64IntoCanvas(data.image);
+            currentOutput = data.metadata.outputFilename;
+
+            document.getElementById('statW').textContent = data.metadata.widthPx + 'px';
+            document.getElementById('statH').textContent = data.metadata.heightPx + 'px';
+            document.getElementById('statTime').textContent = data.metadata.processingTimeMs + ' ms';
+            document.getElementById('processingBadge').textContent = '✅ Converted';
+            document.getElementById('modeBadge').textContent = `Mode: ${formatMode(data.metadata.modeUsed)}`;
+
+            // Reset sliders and store clean pixel data
+            resetSliders();
+            showResult(true);
+
+        } catch (err) {
+            showError('Network error: ' + err.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    // Load a base64 image into canvas and store the raw pixel buffer
+    function loadBase64IntoCanvas(dataUrl) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                canvasW = img.naturalWidth;
+                canvasH = img.naturalHeight;
+                canvas.width  = canvasW;
+                canvas.height = canvasH;
+                ctx.drawImage(img, 0, 0);
+                // Capture the clean server output as our "base" pixel array
+                basePixels = new Uint8ClampedArray(ctx.getImageData(0, 0, canvasW, canvasH).data);
+                resolve();
+            };
+            img.onerror = reject;
+            img.src = dataUrl;
+        });
+    }
+
+    // ── Slider Logic ───────────────────────────────────────────────────────────
+
+    const sliders = [
+        { id: 'slRed',   val: 'valRed',   sign: true },
+        { id: 'slGreen', val: 'valGreen', sign: true },
+        { id: 'slBlue',  val: 'valBlue',  sign: true },
+        { id: 'slBri',   val: 'valBri',   sign: true },
+        { id: 'slCon',   val: 'valCon',   sign: true },
+        { id: 'slSat',   val: 'valSat',   sign: true },
+    ];
+
+    function onSliderChange() {
+        // Update displayed values
+        sliders.forEach(s => {
+            const v = parseInt(document.getElementById(s.id).value);
+            const label = document.getElementById(s.val);
+            label.textContent = (s.sign && v > 0 ? '+' : '') + v;
+        });
+
+        // Schedule canvas repaint via rAF (throttled)
+        if (!rafPending) {
+            rafPending = true;
+            requestAnimationFrame(applyAdjustmentsToCanvas);
+        }
+    }
+
+    function resetSliders() {
+        sliders.forEach(s => {
+            document.getElementById(s.id).value = 0;
+            document.getElementById(s.val).textContent = '0';
+        });
+        if (basePixels) applyAdjustmentsToCanvas();
+    }
+
+    // ── Canvas Pixel Processing ────────────────────────────────────────────────
+
+    /**
+     * Applies colour adjustments to the stored base pixels client-side:
+     *   1. Saturation  (luminance-weighted lerp)
+     *   2. Contrast    (Photoshop pivot-128 formula)
+     *   3. RGB offsets (additive per-channel)
+     *   4. Brightness  (global additive)
+     *
+     * Runs on every animation frame when a slider is moved — no server round-trip.
+     */
+    function applyAdjustmentsToCanvas() {
+        rafPending = false;
+        if (!basePixels || canvasW === 0) return;
+
+        const red = parseInt(document.getElementById('slRed').value);
+        const grn = parseInt(document.getElementById('slGreen').value);
+        const blu = parseInt(document.getElementById('slBlue').value);
+        const bri = parseInt(document.getElementById('slBri').value);
+        const con = parseInt(document.getElementById('slCon').value);
+        const sat = parseInt(document.getElementById('slSat').value);
+
+        // Contrast factor (Photoshop formula)
+        const conFactor = (259 * (con + 255)) / (255 * (259 - con));
+
+        // Saturation multiplier: slider -100..+100 → mult 0..2
+        const satMult = 1.0 + sat / 100.0;
+
+        const len = canvasW * canvasH * 4;
+        const imgData = ctx.createImageData(canvasW, canvasH);
+        const dest = imgData.data;
+
+        for (let i = 0; i < len; i += 4) {
+            let r = basePixels[i];
+            let g = basePixels[i + 1];
+            let b = basePixels[i + 2];
+
+            // 1. Saturation — perceptual BT.601 luma-weighted
+            if (sat !== 0) {
+                const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                r = luma + satMult * (r - luma);
+                g = luma + satMult * (g - luma);
+                b = luma + satMult * (b - luma);
+            }
+
+            // 2. Contrast (pivot around mid-grey 128)
+            if (con !== 0) {
+                r = conFactor * (r - 128) + 128;
+                g = conFactor * (g - 128) + 128;
+                b = conFactor * (b - 128) + 128;
+            }
+
+            // 3. Per-channel offsets
+            r += red;
+            g += grn;
+            b += blu;
+
+            // 4. Brightness
+            r += bri;
+            g += bri;
+            b += bri;
+
+            dest[i]     = clamp(Math.round(r));
+            dest[i + 1] = clamp(Math.round(g));
+            dest[i + 2] = clamp(Math.round(b));
+            dest[i + 3] = 255; // fully opaque
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    function clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
+
+    // ── Download ───────────────────────────────────────────────────────────────
+
+    function downloadCanvas() {
+        canvas.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a   = document.createElement('a');
+            a.href     = url;
+            a.download = currentOutput || 'positive.png';
+            a.click();
+            URL.revokeObjectURL(url);
+        }, 'image/png');
+    }
+
+    // ── UI Helpers ─────────────────────────────────────────────────────────────
+
+    function getMode() {
+        return document.querySelector('input[name="mode"]:checked').value;
+    }
+
+    function formatMode(mode) {
+        return { AUTO_COLOR_CORRECT: 'Auto Color Correct',
+                 ORANGE_MASK_REMOVAL: 'Mask Removal', SIMPLE_INVERT: 'Simple Invert' }[mode] || mode;
+    }
+
+    function showLoading(show) {
+        document.getElementById('loadingState').classList.toggle('hidden', !show);
+        document.getElementById('emptyState').classList.add('hidden');
+    }
+
+    function showResult(show) {
+        document.getElementById('resultSection').classList.toggle('hidden', !show);
+        if (!show) document.getElementById('emptyState').classList.remove('hidden');
+        else document.getElementById('emptyState').classList.add('hidden');
+    }
+
+    function showError(msg) {
+        const el = document.getElementById('errorMsg');
+        el.textContent = '⚠️ ' + msg;
+        el.classList.remove('hidden');
+    }
+
+    function clearError() {
+        document.getElementById('errorMsg').classList.add('hidden');
+    }
+    </script>
+</body>
+</html>
